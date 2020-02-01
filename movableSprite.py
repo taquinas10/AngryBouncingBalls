@@ -1,21 +1,24 @@
 """balls!"""
 
 import pygame
+import sys
 import random
 from pygame.locals import*
 import math
+import operator
 # Define some colors
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 
 SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 600
-BALL_SIZE = 4
+BALL_SIZE = 10
 LOWSPEED=-6
 HIGHSPEED=6
 BALLMASS=1.0
 CHANCEANGRY=100
 TIMEBEFORERELAX=3
+IMAGEPATH= "/Users/martinskoglund1/Desktop/"
 
 Smiley = pygame.sprite.Group()
 others = pygame.sprite.Group()
@@ -28,7 +31,7 @@ class Ball(pygame.sprite.Sprite):
     def __init__(self,Group):
         
         pygame.sprite.Sprite.__init__(self, Group, others)
-        #first bit is sign next 7 x movement next(nr 9) is y sign 10-16 is y movement
+        #first bit is x-sign next 7 x movement next(nr 9) is y sign 10-16 is y movement
         self.moveVector= [0,0]
         self.b=random.randrange(1,10)
         self.c=(BALL_SIZE*self.b)**2
@@ -50,7 +53,7 @@ class Ball(pygame.sprite.Sprite):
         center=[self.rect[0]+self.b*BALL_SIZE/2.0,self.rect[1]+self.b*BALL_SIZE/2.0]
         return center
     def getRelax(self):
-        path = "/Users/martinskoglund1/Desktop/Flushed_Face_Emoji.png"
+        path = IMAGEPATH+"Flushed_Face_Emoji.png"
         imag3 = pygame.image.load(path)
         basewidth = self.b*BALL_SIZE
         wpercent = (basewidth / float(imag3.get_rect().size[0]))
@@ -58,7 +61,7 @@ class Ball(pygame.sprite.Sprite):
         imag3 =pygame.transform.smoothscale(imag3, (hsize, hsize))
         return imag3
     def getAngry(self):
-        path = "/Users/martinskoglund1/Desktop/angrySmiley1.png"
+        path = IMAGEPATH+"angrySmiley1.png"
         imag3 = pygame.image.load(path)
         basewidth = self.b*BALL_SIZE
         wpercent = (basewidth / float(imag3.get_rect().size[0]))
@@ -95,6 +98,17 @@ def collision(v1,v2,m1,m2,x1,x2):
     pointV=vektM(x1,x2)
     newV1=vektM(v1,sMult(m11*dot/norm,pointV))
     return newV1
+#to prevent balls from 'doublecolliding' with each other thus getting stuck
+def overlappFix(b1,b2):
+    centerb1=b1.getCenter()
+    centerb2=b2.getCenter()
+    d1=squareNorm(vektM(centerb1,centerb2))
+    a= list(map(operator.add,centerb1,sMult(1/10.0,b1.moveVector)))
+    b=list(map(operator.add,centerb2,sMult(1/10.0,b2.moveVector)))
+    d2=squareNorm(vektM(a,b))
+    if d2<d1:
+        return 1
+    return 0
 
 def make_ball(Group):
     """
@@ -156,6 +170,10 @@ def main():
                 # Space bar! Spawn a new ball.
                 if event.key == pygame.K_SPACE:
                     ball = make_ball(Smiley)
+                elif event.key==pygame.K_ESCAPE:
+                    pygame.display.quit()
+                    pygame.quit()
+                    return exit()
         # --- Logic
         for ball in Smiley:
             #remove ball from others
@@ -169,17 +187,21 @@ def main():
             ball.move(x,y)
             
             # Bounce the ball if needed
-            if ball.rect[1] > SCREEN_HEIGHT - ball.b*BALL_SIZE or ball.rect[1] < 0:
-                ball.moveVector[1]*= -1
-                ball.move(ball.moveVector[0]/2,ball.moveVector[1]/2)
-            if ball.rect[0] > SCREEN_WIDTH - ball.b*BALL_SIZE or ball.rect[0] < 0:
-                ball.moveVector[0]*= -1
-                ball.move(ball.moveVector[0],ball.moveVector[1])
+            #y
+            if ball.rect[1] > SCREEN_HEIGHT - ball.b*BALL_SIZE:
+                ball.moveVector[1]= (-1)*abs(ball.moveVector[1]) 
+            if ball.rect[1] < 0:
+                ball.moveVector[1]= abs(ball.moveVector[1])
+                #x
+            if ball.rect[0] > SCREEN_WIDTH - ball.b*BALL_SIZE:
+                ball.moveVector[0]= (-1)*abs(ball.moveVector[0])
+            if ball.rect[0] < 0:
+                ball.moveVector[0]= abs(ball.moveVector[0])
             #check for collision
             posColliders=pygame.sprite.spritecollideany(ball, others, collided = None)
             if posColliders:
                 for b1 in others:
-                    if ball.collisionCheck(b1):
+                    if ball.collisionCheck(b1) and (overlappFix(ball, b1)):
                         v1=ball.moveVector
                         v2=b1.moveVector
                         m1=ball.mass
@@ -204,7 +226,6 @@ def main():
         
         # Draw the balls
         for ball in Smiley:
-            #pygame.draw.circle(screen, WHITE, [ball.x, ball.y], BALL_SIZE)
             screen.blit(ball.image,ball.rect)
 # --- Wrap-up
 # Limit to 60 frames per second
@@ -214,8 +235,8 @@ def main():
         pygame.display.flip()
     
     
+    
     # Close everything down
-    pygame.quit()
 if __name__ == "__main__":
     main()
 
